@@ -14,11 +14,13 @@
     "url": "git+https://github.com/charger88/orange-mini-api-rest.git"
   },
   "keywords": [
-    "time",
-    "seconds",
-    "minutes",
-    "hours",
-    "days"
+    "amazon",
+    "aws",
+    "api",
+    "rest",
+    "dynamodb",
+    "lambda",
+    "api gateway"
   ],
   "author": {
     "name": "Mike Kelner",
