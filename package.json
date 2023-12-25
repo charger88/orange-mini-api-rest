@@ -1,0 +1,50 @@
+{
+  "name": "orange-mini-api-rest",
+  "version": "0.1.0",
+  "description": "Small AWS-based REST API library",
+  "main": "index.mjs",
+  "type": "module",
+  "scripts": {
+    "test": "jasmine",
+    "eslint": "eslint src/*.mjs spec/*.mjs",
+    "eslint-fix": "eslint --fix src/*.mjs spec/*.mjs"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/charger88/orange-mini-api-rest.git"
+  },
+  "keywords": [
+    "time",
+    "seconds",
+    "minutes",
+    "hours",
+    "days"
+  ],
+  "author": {
+    "name": "Mike Kelner",
+    "email": "mikhail.kelner@gmail.com",
+    "url": "https://www.michaelkelner.com/"
+  },
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/charger88/orange-mini-api-rest/issues"
+  },
+  "homepage": "https://github.com/charger88/orange-mini-api-rest#readme",
+  "dependencies": {
+
+    "orange-dragonfly-router": "^0.1.2",
+    "orange-dragonfly-validator": "^0.8.0",
+    "uuid": "^9.0.1"
+  },
+  "devDependencies": {
+    "@aws-sdk/client-dynamodb": "^3.478.0",
+    "@aws-sdk/util-dynamodb": "^3.478.0",
+    "babel-preset-env": "^1.7.0",
+    "eslint": "^8.56.0",
+    "eslint-config-standard": "^17.1.0",
+    "eslint-plugin-import": "^2.29.1",
+    "eslint-plugin-node": "^11.1.0",
+    "eslint-plugin-promise": "^6.1.1",
+    "jasmine": "^5.1.0"
+  }
+}
