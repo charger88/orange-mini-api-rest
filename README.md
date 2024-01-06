@@ -68,7 +68,7 @@ You can define different views for the specific resource:
 const views = {
   default: ['uuid', 'name', 'timestamp'] // "default" view will be applied by default.
   brief: ['uuid', 'name'], // any other view could be provided in query string like "/resources?view=brief"
-  arr_view: ['uuid'], // there are 3 ways to define view. You can brovide array with the list of parameters to show
+  arr_view: ['uuid'], // there are 3 ways to define view. You can provide array with the list of parameters to show
   obj_view: { 'uuid': 'id', 'name': 'name' }, // if view is defined as array, it will work as mapping (original parameter name to output parameter)
   fn_view: (output) => ({ ...output, random: Math.random() }), // function used for view woud receive generic output as parameter and should return the formatted one
 }
