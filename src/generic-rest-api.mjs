@@ -24,6 +24,12 @@ export default class GenericRestAPI {
         min: 36,
         max: 36
       },
+      view: {
+        required: true,
+        type: 'string',
+        max: 36,
+        default: 'default'
+      },
       last_timestamp: {
         transform: (v) => parseInt(v, 10),
         apply_transformed: true,
@@ -46,20 +52,40 @@ export default class GenericRestAPI {
   }
 
   /**
+   * Generic item request schema in orange-dragonfly-validator format
+   * @type {Object}
+   */
+  static get ITEM_SCHEMA () {
+    return {
+      view: {
+        required: true,
+        type: 'string',
+        max: 36,
+        default: 'default'
+      }
+    }
+  }
+
+  /**
    * Registers API resource
    * @param {string} name Resource name the way it will be used on URL and in DynameDB
    * @param {Object} schema Resource structure schema in orange-dragonfly-validator format
+   * @param {Object} [options={}] Resource custom options
    */
-  static registerResource (name, schema) {
+  static registerResource (name, schema, options = {}) {
     if (!this._SCHEMAS) {
       this._SCHEMAS = {}
     }
     this._SCHEMAS[name] = schema
+    if (!this._SCHEMAS_OPTIONS) {
+      this._SCHEMAS_OPTIONS = {}
+    }
+    this._SCHEMAS_OPTIONS[name] = options
   }
 
   /**
    * Returns resource structure schema if registered
-   * @param {string} name Resource name the way it will be used on URL and in DynameDB
+   * @param {string} name Resource name the way it was registered
    * @returns {Object|null} Resource structure schema
    */
   static getSchema (name) {
@@ -68,6 +94,21 @@ export default class GenericRestAPI {
     }
     if (name in this._SCHEMAS) {
       return this._SCHEMAS[name]
+    }
+    return null
+  }
+
+  /**
+   * Returns options for the reource
+   * @param {string} name Resource name the way it was registered
+   * @returns {Object|null} Resource options
+   */
+  static getResourceOptions (name) {
+    if (!this._SCHEMAS_OPTIONS) {
+      throw new Error('Schemas options are not registered')
+    }
+    if (name in this._SCHEMAS_OPTIONS) {
+      return this._SCHEMAS_OPTIONS[name]
     }
     return null
   }
@@ -149,6 +190,37 @@ export default class GenericRestAPI {
   }
 
   /**
+   * Formats items for output
+   * @param {string} resource Name of resource
+   * @param {Object} payload Item's payload
+   * @param {string} [view="default"] Name of the view
+   * @returns {Object} Formatted output for API
+   */
+  static formatItem (resource, payload, view = 'default') {
+    const options = this.getResourceOptions(resource)
+    if (options.views) {
+      if (view in options.views) {
+        const format = options.views[view]
+        if (typeof format === 'function') {
+          return format(payload)
+        }
+        if (Array.isArray(format)) {
+          return Object.entries(payload)
+            .filter((v) => format.includes(v[0]))
+            .reduce((a, c) => Object.assign(a, { [c[0]]: c[1] }), {})
+        }
+        if (format && (typeof format === 'object') && (format.constructor.name === 'Object')) {
+          return Object.entries(payload)
+            .filter((v) => v[0] in format)
+            .reduce((a, c) => Object.assign(a, { [format[c[0]]]: c[1] }), {})
+        }
+        throw new Error(`"views" option for resource ${resource} is not array, object or function`)
+      }
+    }
+    return payload
+  }
+
+  /**
    * Controller function for GET list of items
    * @param {Object} route Route
    * @param {DataProvider} dataProvider Data provider
@@ -156,11 +228,12 @@ export default class GenericRestAPI {
    * @returns {Object} API Gateway response
    */
   static async routeGet (route, dataProvider, request) {
+    validate(this.LIST_SCHEMA, request.query)
     const { resource } = route.params
     this.getSchema(resource)
-    validate(this.LIST_SCHEMA, request.query)
     const items = await dataProvider.search(request.user, resource, request.query)
-    return ApiGateway.response(items)
+    const output = items.map((v) => this.formatItem(resource, v, request?.query?.view))
+    return ApiGateway.response(output)
   }
 
   /**
@@ -171,10 +244,12 @@ export default class GenericRestAPI {
    * @returns {Object} API Gateway response
    */
   static async routePost (route, dataProvider, request) {
+    validate(this.ITEM_SCHEMA, request.query)
     const { resource } = route.params
     validate(this.getSchema(resource), request.body)
     const item = await dataProvider.save(request.user, resource, request.body)
-    return ApiGateway.response(item, 201)
+    const output = this.formatItem(resource, item, request?.query?.view)
+    return ApiGateway.response(output, 201)
   }
 
   /**
@@ -185,11 +260,13 @@ export default class GenericRestAPI {
    * @returns {Object} API Gateway response
    */
   static async routeGetItem (route, dataProvider, request) {
+    validate(this.ITEM_SCHEMA, request.query)
     const { resource, uuid } = route.params
     this.getSchema(resource)
     const item = await dataProvider.getAndCheckAccess(request.user, resource, uuid)
     if (!item) return ApiGateway.error('Object not found', 404)
-    return ApiGateway.response(item)
+    const output = this.formatItem(resource, item, request?.query?.view)
+    return ApiGateway.response(output)
   }
 
   /**
@@ -200,12 +277,14 @@ export default class GenericRestAPI {
    * @returns {Object} API Gateway response
    */
   static async routeReplaceItem (route, dataProvider, request) {
+    validate(this.ITEM_SCHEMA, request.query)
     const { resource, uuid } = route.params
     validate(this.getSchema(resource), request.body)
     let item = await dataProvider.getAndCheckAccess(request.user, resource, uuid)
     if (!item) return ApiGateway.error('Object not found', 404)
     item = await dataProvider.save(request.user, resource, request.body, uuid)
-    return ApiGateway.response(item, 200)
+    const output = this.formatItem(resource, item, request?.query?.view)
+    return ApiGateway.response(output, 200)
   }
 
   /**
@@ -216,6 +295,7 @@ export default class GenericRestAPI {
    * @returns {Object} API Gateway response
    */
   static async routeUpdateItem (route, dataProvider, request) {
+    validate(this.ITEM_SCHEMA, request.query)
     const { resource, uuid } = route.params
     const schema = this.getSchema(resource)
     let item = await dataProvider.getAndCheckAccess(request.user, resource, uuid)
@@ -225,7 +305,8 @@ export default class GenericRestAPI {
     if (!('timestamp' in schema)) delete payload.timestamp
     validate(schema, payload)
     item = await dataProvider.save(request.user, resource, payload, uuid)
-    return ApiGateway.response(item)
+    const output = this.formatItem(resource, item, request?.query?.view)
+    return ApiGateway.response(output)
   }
 
   /**

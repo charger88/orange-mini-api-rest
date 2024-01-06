@@ -11,10 +11,19 @@ GenericRestAPI.registerResource('article', { name: { type: ['string'] } })
 
 describe('LIST_SCHEMA', () => {
   it('exists', () => {
-    expect(Object.keys(GenericRestAPI.LIST_SCHEMA)).toEqual(['limit', 'last_uuid', 'last_timestamp', 'start', 'end'])
+    expect(Object.keys(GenericRestAPI.LIST_SCHEMA)).toEqual(['limit', 'last_uuid', 'view', 'last_timestamp', 'start', 'end'])
   })
   it('is valid', () => {
     expect(() => validate(GenericRestAPI.LIST_SCHEMA, {})).not.toThrow()
+  })
+})
+
+describe('ITEM_SCHEMA', () => {
+  it('exists', () => {
+    expect(Object.keys(GenericRestAPI.ITEM_SCHEMA)).toEqual(['view'])
+  })
+  it('is valid', () => {
+    expect(() => validate(GenericRestAPI.ITEM_SCHEMA, {})).not.toThrow()
   })
 })
 
@@ -402,6 +411,70 @@ describe('routeUpdateItem', () => {
     const dataProvider = new DataProvider('MyTable', '', {}, fakeClient)
     const response = await GenericRestAPI.routeUpdateItem({ params: { resource: 'article', uuid: 'aaaaaaaa-aaaa-aaaa-aaaa-00000001' } }, dataProvider, { user: 'u111', body: { name: 'NX' } })
     expect(response.statusCode).toBe(404)
+    const mock = fakeClient.getMockedCommand()
+    expect(mock.constructor.name).toBe('GetItemCommand')
+  })
+})
+
+describe('view option', () => {
+  GenericRestAPI.registerResource('sandwich', { name: { type: ['string'] } }, {
+    views: {
+      default: (output) => {
+        output.extra = 12345
+        return output
+      },
+      brief: ['uuid', 'name'],
+      special: {
+        uuid: 'id',
+        name: 'title'
+      }
+    }
+  })
+  it('works with get item - default view (function mode)', async () => {
+    const fakeClient = new FakeClient()
+    fakeClient.addMock({
+      Item: fakeClient.generateTestItem('Cheeseburger', '/u111:sandwich', 'aaaaaaaa-aaaa-aaaa-aaaa-00000001')
+    })
+    const now = Date.now()
+    const dataProvider = new DataProvider('MyTable', '', {}, fakeClient)
+    const response = await GenericRestAPI.routeGetItem({ params: { resource: 'sandwich', uuid: 'aaaaaaaa-aaaa-aaaa-aaaa-00000001' } }, dataProvider, { user: 'u111' })
+    expect(response.statusCode).toBe(200)
+    const body = JSON.parse(response.body)
+    expect(Object.keys(body)).toEqual(['uuid', 'timestamp', 'name', 'extra'])
+    expect(body.uuid).toBe('aaaaaaaa-aaaa-aaaa-aaaa-00000001')
+    expect(body.timestamp).toBeGreaterThanOrEqual(now)
+    expect(body.name).toBe('Cheeseburger')
+    expect(body.extra).toBe(12345)
+    const mock = fakeClient.getMockedCommand()
+    expect(mock.constructor.name).toBe('GetItemCommand')
+  })
+  it('works with get item - brief view (array mode)', async () => {
+    const fakeClient = new FakeClient()
+    fakeClient.addMock({
+      Item: fakeClient.generateTestItem('Cheeseburger', '/u111:sandwich', 'aaaaaaaa-aaaa-aaaa-aaaa-00000001')
+    })
+    const dataProvider = new DataProvider('MyTable', '', {}, fakeClient)
+    const response = await GenericRestAPI.routeGetItem({ params: { resource: 'sandwich', uuid: 'aaaaaaaa-aaaa-aaaa-aaaa-00000001' } }, dataProvider, { user: 'u111', query: { view: 'brief' } })
+    expect(response.statusCode).toBe(200)
+    const body = JSON.parse(response.body)
+    expect(Object.keys(body)).toEqual(['uuid', 'name'])
+    expect(body.uuid).toBe('aaaaaaaa-aaaa-aaaa-aaaa-00000001')
+    expect(body.name).toBe('Cheeseburger')
+    const mock = fakeClient.getMockedCommand()
+    expect(mock.constructor.name).toBe('GetItemCommand')
+  })
+  it('works with get item - default view (object mode)', async () => {
+    const fakeClient = new FakeClient()
+    fakeClient.addMock({
+      Item: fakeClient.generateTestItem('Cheeseburger', '/u111:sandwich', 'aaaaaaaa-aaaa-aaaa-aaaa-00000001')
+    })
+    const dataProvider = new DataProvider('MyTable', '', {}, fakeClient)
+    const response = await GenericRestAPI.routeGetItem({ params: { resource: 'sandwich', uuid: 'aaaaaaaa-aaaa-aaaa-aaaa-00000001' } }, dataProvider, { user: 'u111', query: { view: 'special' } })
+    expect(response.statusCode).toBe(200)
+    const body = JSON.parse(response.body)
+    expect(Object.keys(body)).toEqual(['id', 'title'])
+    expect(body.id).toBe('aaaaaaaa-aaaa-aaaa-aaaa-00000001')
+    expect(body.title).toBe('Cheeseburger')
     const mock = fakeClient.getMockedCommand()
     expect(mock.constructor.name).toBe('GetItemCommand')
   })
