@@ -279,10 +279,19 @@ export default class GenericRestAPI {
   static async routeReplaceItem (route, dataProvider, request) {
     validate(this.ITEM_SCHEMA, request.query)
     const { resource, uuid } = route.params
-    validate(this.getSchema(resource), request.body)
+    const payload = { ...request.body }
+    if ('uuid' in payload) {
+      if (payload.uuid !== uuid) return ApiGateway.error('UUID does\'t match', 400)
+      delete payload.uuid
+    }
+    const schema = this.getSchema(resource)
+    if (('timestamp' in payload) && !('timestamp' in schema)) {
+      delete payload.timestamp
+    }
+    validate(schema, payload)
     let item = await dataProvider.getAndCheckAccess(request.user, resource, uuid)
     if (!item) return ApiGateway.error('Object not found', 404)
-    item = await dataProvider.save(request.user, resource, request.body, uuid)
+    item = await dataProvider.save(request.user, resource, payload, uuid)
     const output = this.formatItem(resource, item, request?.query?.view)
     return ApiGateway.response(output, 200)
   }
