@@ -1,6 +1,6 @@
 {
   "name": "orange-mini-api-rest",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Small AWS-based REST API library",
   "main": "index.mjs",
   "type": "module",

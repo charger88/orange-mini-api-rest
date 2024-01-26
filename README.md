@@ -76,6 +76,19 @@ const views = {
 GenericRestAPI.registerResource('article', SCHEMA_ARTICLE, { views })
 ```
 
+### Single object mode
+
+Resources can be registered with `"single": true` option. In that case API works like the only instance of that resource that can be created for the customer.
+
+```javascript
+GenericRestAPI.registerResource('config', SCHEMA_CONFIG, { single: true })
+```
+
+It will affect two endpoints:
+
+* `GET /api/{resource}` - it will return only the object (not array). If nothing is found, error 404 will be returned.
+* `POST /api/{resource}` - Endpoint will work as usual for the first time, but since object is created, it will start to work as "Replace object" endpoint (uuid is not required)
+
 ## AWS NPM packages warning
 
 For the purpose of the optimization AWS SDK packages are moved to `devDependencies` instead of `dependencies` in `package.json`.

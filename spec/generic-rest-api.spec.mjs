@@ -8,6 +8,7 @@ import FakeClient from './helpers/fake-client.mjs'
 
 GenericRestAPI.registerResource('user', { username: { type: ['string'] } })
 GenericRestAPI.registerResource('article', { name: { type: ['string'] } })
+GenericRestAPI.registerResource('options', { name: { type: ['string'] } }, { single: true })
 
 describe('LIST_SCHEMA', () => {
   it('exists', () => {
@@ -27,7 +28,7 @@ describe('ITEM_SCHEMA', () => {
   })
 })
 
-describe('registerResource and getSchema', () => {
+describe('getSchema', () => {
   it('works', () => {
     const s1 = GenericRestAPI.getSchema('user')
     expect(s1.username.type[0]).toBe('string')
@@ -35,6 +36,17 @@ describe('registerResource and getSchema', () => {
     expect(s2.name.type[0]).toBe('string')
     const s3 = GenericRestAPI.getSchema('something')
     expect(s3).toBe(null)
+  })
+})
+
+describe('getResourceOptions', () => {
+  it('works', () => {
+    const s1 = GenericRestAPI.getResourceOptions('user')
+    expect(s1).toEqual({})
+    const s2 = GenericRestAPI.getResourceOptions('article')
+    expect(s2).toEqual({})
+    const s3 = GenericRestAPI.getResourceOptions('options')
+    expect(s3).toEqual({ single: true })
   })
 })
 
@@ -201,6 +213,32 @@ describe('routeGet', () => {
     const mock = fakeClient.getMockedCommand()
     expect(mock.constructor.name).toBe('QueryCommand')
   })
+  it('works in single mode', async () => {
+    const fakeClient = new FakeClient()
+    fakeClient.addMock({
+      Items: [
+        fakeClient.generateTestItem('N1', '/u111:options', 'aaaaaaaa-aaaa-aaaa-aaaa-00000001')
+      ]
+    })
+    const dataProvider = new DataProvider('MyTable', '', {}, fakeClient)
+    const response = await GenericRestAPI.routeGet({ params: { resource: 'options' } }, dataProvider, { user: 'u111' })
+    expect(response.statusCode).toBe(200)
+    const body = JSON.parse(response.body)
+    expect(body.uuid).toContain('aaaaaaaa-aaaa-aaaa-aaaa-00000001')
+    const mock = fakeClient.getMockedCommand()
+    expect(mock.constructor.name).toBe('QueryCommand')
+  })
+  it('returns 404 if onject not found in single mode', async () => {
+    const fakeClient = new FakeClient()
+    fakeClient.addMock({
+      Items: []
+    })
+    const dataProvider = new DataProvider('MyTable', '', {}, fakeClient)
+    const response = await GenericRestAPI.routeGet({ params: { resource: 'options' } }, dataProvider, { user: 'u111' })
+    expect(response.statusCode).toBe(404)
+    const mock = fakeClient.getMockedCommand()
+    expect(mock.constructor.name).toBe('QueryCommand')
+  })
 })
 
 describe('routePost', () => {
@@ -225,6 +263,43 @@ describe('routePost', () => {
     }
     expect(thrownError).not.toBe(null)
     expect(thrownError.message).toBe('Validation failed')
+  })
+  it('works in single mode (exists)', async () => {
+    const fakeClient = new FakeClient()
+    fakeClient.addMock({
+      Items: [
+        fakeClient.generateTestItem('N1', '/u111:options', 'aaaaaaaa-aaaa-aaaa-aaaa-00000001')
+      ]
+    })
+    fakeClient.addMock({
+      Item: fakeClient.generateTestItem('N1', '/u111:options', 'aaaaaaaa-aaaa-aaaa-aaaa-00000001')
+    })
+    fakeClient.addMock({ })
+    const dataProvider = new DataProvider('MyTable', '', {}, fakeClient)
+    const response = await GenericRestAPI.routePost({ params: { resource: 'options' } }, dataProvider, { user: 'u111', body: { name: 'Test 1' } })
+    expect(response.statusCode).toBe(200)
+    expect(response.body).toContain('uuid')
+    let mock = fakeClient.getMockedCommand()
+    expect(mock.constructor.name).toBe('QueryCommand')
+    mock = fakeClient.getMockedCommand()
+    expect(mock.constructor.name).toBe('GetItemCommand')
+    mock = fakeClient.getMockedCommand()
+    expect(mock.constructor.name).toBe('PutItemCommand')
+  })
+  it('works in single mode (not found, so just new one)', async () => {
+    const fakeClient = new FakeClient()
+    fakeClient.addMock({
+      Items: []
+    })
+    fakeClient.addMock({ })
+    const dataProvider = new DataProvider('MyTable', '', {}, fakeClient)
+    const response = await GenericRestAPI.routePost({ params: { resource: 'options' } }, dataProvider, { user: 'u111', body: { name: 'Test 1' } })
+    expect(response.statusCode).toBe(201)
+    expect(response.body).toContain('uuid')
+    let mock = fakeClient.getMockedCommand()
+    expect(mock.constructor.name).toBe('QueryCommand')
+    mock = fakeClient.getMockedCommand()
+    expect(mock.constructor.name).toBe('PutItemCommand')
   })
 })
 

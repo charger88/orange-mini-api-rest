@@ -233,7 +233,14 @@ export default class GenericRestAPI {
     this.getSchema(resource)
     const items = await dataProvider.search(request.user, resource, request.query)
     const output = items.map((v) => this.formatItem(resource, v, request?.query?.view))
-    return ApiGateway.response(output)
+    const options = this.getResourceOptions(resource)
+    if (options.single) {
+      return output.length
+        ? ApiGateway.response(output[0])
+        : ApiGateway.error('Object not found', 404)
+    } else {
+      return ApiGateway.response(output)
+    }
   }
 
   /**
@@ -246,6 +253,14 @@ export default class GenericRestAPI {
   static async routePost (route, dataProvider, request) {
     validate(this.ITEM_SCHEMA, request.query)
     const { resource } = route.params
+    const options = this.getResourceOptions(resource)
+    if (options.single) {
+      const items = await dataProvider.search(request.user, resource, { limit: 1 })
+      if (items.length) {
+        const params = { ...route.params, uuid: items[0].uuid }
+        return await this.routeReplaceItem({ ...route, params }, dataProvider, request)
+      }
+    }
     validate(this.getSchema(resource), request.body)
     const item = await dataProvider.save(request.user, resource, request.body)
     const output = this.formatItem(resource, item, request?.query?.view)
